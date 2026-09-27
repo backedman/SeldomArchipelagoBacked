@@ -104,5 +104,7 @@ Mods: {
 				DisplayName: Flag Starter
 			}
 		}
+
+		Conditions.LocationCheckSent: Location Check Already Sent
 	}
 }

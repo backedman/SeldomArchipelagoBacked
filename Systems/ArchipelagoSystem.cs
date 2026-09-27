@@ -40,6 +40,61 @@ namespace SeldomDespArchipelago.Systems
 {
     class ArchipelagoSystem : ModSystem
     {
+
+        private static readonly Dictionary<string, int> SpecialMappings = new Dictionary<string, int>
+        {
+            { "Aerial Bane", ItemID.DD2BetsyBow },
+            { "Amber Horseshoe Balloon", ItemID.BalloonHorseshoeHoney },
+            { "Apprentice's Scarf", ItemID.ApprenticeScarf },
+            //{ "Barrel Launcher", ItemID.DeadCellsBarrelLauncher },
+            { "Betsy's Wings", ItemID.BetsyWings },
+            { "Betsy's Wrath", ItemID.ApprenticeStaffT3 },
+            { "Blade Staff", ItemID.Smolstar },
+            { "Brand of the Inferno", ItemID.DD2SquireDemonSword },
+            { "Celebration Mk2", ItemID.Celeb2 },
+            { "Crystal Assassin Hood", ItemID.CrystalNinjaHelmet },
+            { "Crystal Assassin Pants", ItemID.CrystalNinjaLeggings },
+            { "Crystal Assassin Shirt", ItemID.CrystalNinjaChestplate },
+            { "Dark Harvest", ItemID.ScytheWhip },
+            { "Durendal", ItemID.SwordWhip },
+            //{ "Electric Eel", ItemID.EelWhip },
+            { "Empress Wings", ItemID.RainbowWings },
+            { "Eventide", ItemID.FairyQueenRangedItem },
+            { "Firecracker", ItemID.FireWhip },
+            //{ "Flairon", ItemID.FlaironFlail },
+            { "Flying Dragon", ItemID.DD2SquireBetsySword },
+            { "Ghastly Glaive", ItemID.MonkStaffT2 },
+            { "Hallowed Jousting Lance", ItemID.HallowJoustingLance },
+            { "Kaleidoscope", ItemID.RainbowWhip },
+            { "Luminite", ItemID.LunarOre },
+            { "Lunar Flare", ItemID.LunarFlareBook },
+            { "Lunar Portal Staff", ItemID.MoonlordTurretStaff },
+            { "Monk's Belt", ItemID.MonkBelt },
+            //{ "Mud Ball", ItemID.MudBallPlayer },
+            //{ "Mushroom Staff", ItemID.MushroomBoi },
+            { "Nebula Mantle", ItemID.WingsNebula },
+            { "Nightglow", ItemID.FairyQueenMagicItem },
+            { "Obsidian Longcoat", ItemID.ObsidianShirt },
+            { "Obsidian Outlaw Hat", ItemID.ObsidianHelm },
+            { "Pew-matic Horn", ItemID.PewMaticHorn },
+            { "Phantom Phoenix", ItemID.DD2PhoenixBow },
+            //{ "Possession", ItemID.MoonLordWhip },
+            { "Sky Dragon's Fury", ItemID.MonkStaffT3 },
+            { "Sleepy Octopod", ItemID.MonkStaffT1 },
+            { "Solar Wings", ItemID.WingsSolar },
+            { "Spectre Wings", ItemID.GhostWings },
+            { "Stardust Plate", ItemID.StardustBreastplate },
+            { "Stardust Wings", ItemID.WingsStardust },
+            { "Stellar Tune", ItemID.SparkleGuitar },
+            { "Sticky Dirt Bomb", ItemID.DirtStickyBomb },
+            { "Super Star Shooter", ItemID.SuperStarCannon },
+            //{ "Templar's Sling", ItemID.TemplarSling },
+            { "Terraprisma", ItemID.EmpressBlade },
+            { "The Bee's Knees", ItemID.BeesKnees },
+            { "Tome of Infinite Wisdom", ItemID.BookStaff },
+            { "Vortex Booster", ItemID.WingsVortex }
+            //{ "Vulgar Display of Flower", ItemID.FlowerWhip }
+        };
         public readonly Version APversion = new Version(0, 6, 200);
         public const string APWorldName = "Terraria Beta";
         // Data that's reset between worlds
@@ -77,8 +132,18 @@ namespace SeldomDespArchipelago.Systems
             public Queue<int> ghostNPCqueue = new();
             // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
             // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
+            
             public Dictionary<int, int> npcLocTypeToNpcItemType = null;
 
+            // Dict of the selected terraria items split by rarity pools
+            public Dictionary<string, List<int>> rarityPools;
+
+            // Pre determined rolls for rarity pool selection
+            public List<double> rolls;
+
+            // What the current state of the world is based on the Bosses marked defeated
+            public int world_state;
+            
             public bool NPCRandoActive() => !ModContent.GetInstance<Config.Config>().forceOffNPC && randomizedNPCs is not null;
             public TagCompound SerializeData()
             {
@@ -227,6 +292,50 @@ namespace SeldomDespArchipelago.Systems
             }
 
             session.goals = new List<string>(((JArray)success.SlotData["goal"]).ToObject<string[]>());
+
+            var rarityPoolNames = ((JObject)success.SlotData["rarity_pools"])
+                .ToObject<Dictionary<string, List<string>>>();
+
+            world.rarityPools = rarityPoolNames.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.Select(name =>
+                {
+                    string searchName = name;
+
+                    // 1. Check if an explicit internal ID exception exists for this item name
+                    if (SpecialMappings.TryGetValue(name, out int itemid))
+                    {
+                        return itemid;
+                    }
+                    // 2. Check if the exact name exists in ItemID.Search
+                    else if (!ItemID.Search.ContainsName(searchName))
+                    {
+                        // 3. Fallback: Strip spaces and apostrophes/special characters
+                        searchName = name.Replace(" ", "").Replace("'", "");
+                    }
+
+                    // 4. Validate if the resolved search name is valid in Terraria's ItemID search
+                    if (!ItemID.Search.ContainsName(searchName))
+                    {
+                        Mod.Logger.Warn($"[Archipelago] FAILED to load item: '{name}' (searched as: '{searchName}')");
+                        return 0;
+                    }
+
+                    int id = ItemID.Search.GetId(searchName);
+
+                    // Mod.Logger.Info($"[Archipelago] Successfully loaded item: '{name}' (ID: {id})");
+
+                    return id;
+                }).ToList()
+            );
+
+            GhostItemSystem.SetGhostItems(world.rarityPools.Values.SelectMany(ids => ids));
+
+            Mod.Logger.Info($"[Archipelago] GhostItemSystem loaded {GhostItemSystem.GhostItemIDs.Count} ghost item IDs!");
+            foreach (int id in GhostItemSystem.GhostItemIDs)
+            {
+                Mod.Logger.Info($"[Archipelago] Registered Ghost Item ID: {id} ({ItemID.Search.GetName(id)})");
+            }
 
             session.session.MessageLog.OnMessageReceived += ApMessageToChat;
 
@@ -406,6 +515,70 @@ namespace SeldomDespArchipelago.Systems
             }
         }
 
+        public int getRarity()
+        {
+            int rarity = 0;
+
+            // Rarity 1:
+            // #King Slime | #Eye of Cthulhu
+            if (NPC.downedSlimeKing || NPC.downedBoss1)
+            {
+                rarity = 1;
+            }
+
+            // Rarity 2:
+            // Rarity 1 & #Evil Boss
+            if (rarity >= 1 && NPC.downedBoss2)
+            {
+                rarity = 2;
+            }
+
+            // Rarity 3:
+            // Rarity 2 & (#Skeletron | #Queen Bee)
+            if (rarity >= 2 && (NPC.downedBoss3 || NPC.downedQueenBee))
+            {
+                rarity = 3;
+            }
+
+            // Rarity 4:
+            // Rarity 3 & #Wall of Flesh
+            if (rarity >= 3 && Main.hardMode)
+            {
+                rarity = 4;
+            }
+
+            // Rarity 5:
+            // Rarity 4 & (@mech_boss(1) | #Queen Slime)
+            if (rarity >= 4 &&
+                (NPC.downedMechBossAny || NPC.downedQueenSlime))
+            {
+                rarity = 5;
+            }
+
+            // Rarity 7:
+            // Rarity 5 & #Plantera
+            if (rarity >= 5 && NPC.downedPlantBoss)
+            {
+                rarity = 7;
+            }
+
+            // Rarity 8:
+            // Rarity 7 & (#Duke Fishron | #Empress of Light)
+            if (rarity >= 7 &&
+                (NPC.downedFishron || NPC.downedEmpressOfLight))
+            {
+                rarity = 8;
+            }
+
+            // Rarity 10:
+            // Rarity 8 & #Moon Lord
+            if (rarity >= 8 && NPC.downedMoonlord)
+            {
+                rarity = 10;
+            }
+
+            return rarity;
+        }
         public bool CheckFlag(string flag) => flag switch
         {
             "Post-King Slime" => NPC.downedSlimeKing,
@@ -1127,4 +1300,7 @@ namespace SeldomDespArchipelago.Systems
             }));
         }
     }
+
+    
+
 }
