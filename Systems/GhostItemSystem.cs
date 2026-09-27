@@ -389,6 +389,7 @@ namespace SeldomDespArchipelago
                     Mod.Logger.Info(
                         $"[Archipelago] Triggered location check for Item ID: {itemId}"
                     );
+                    apSystem.QueueLocationClient(itemId);
                 }
 
                 // IMPORTANT:
