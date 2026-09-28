@@ -41,58 +41,74 @@ namespace SeldomDespArchipelago.Systems
 {
     class ArchipelagoSystem : ModSystem
     {
-        private static readonly Dictionary<string, int> SpecialMappings = new Dictionary<string, int>
+        private static readonly Dictionary<string, int[]> SpecialMappings = new Dictionary<string, int[]>
         {
-            { "Aerial Bane", ItemID.DD2BetsyBow },
-            { "Amber Horseshoe Balloon", ItemID.BalloonHorseshoeHoney },
-            { "Apprentice's Scarf", ItemID.ApprenticeScarf },
-            //{ "Barrel Launcher", ItemID.DeadCellsBarrelLauncher },
-            { "Betsy's Wings", ItemID.BetsyWings },
-            { "Betsy's Wrath", ItemID.ApprenticeStaffT3 },
-            { "Blade Staff", ItemID.Smolstar },
-            { "Brand of the Inferno", ItemID.DD2SquireDemonSword },
-            { "Celebration Mk2", ItemID.Celeb2 },
-            { "Crystal Assassin Hood", ItemID.CrystalNinjaHelmet },
-            { "Crystal Assassin Pants", ItemID.CrystalNinjaLeggings },
-            { "Crystal Assassin Shirt", ItemID.CrystalNinjaChestplate },
-            { "Dark Harvest", ItemID.ScytheWhip },
-            { "Durendal", ItemID.SwordWhip },
-            //{ "Electric Eel", ItemID.EelWhip },
-            { "Empress Wings", ItemID.RainbowWings },
-            { "Eventide", ItemID.FairyQueenRangedItem },
-            { "Firecracker", ItemID.FireWhip },
-            //{ "Flairon", ItemID.FlaironFlail },
-            { "Flying Dragon", ItemID.DD2SquireBetsySword },
-            { "Ghastly Glaive", ItemID.MonkStaffT2 },
-            { "Hallowed Jousting Lance", ItemID.HallowJoustingLance },
-            { "Kaleidoscope", ItemID.RainbowWhip },
-            { "Luminite", ItemID.LunarOre },
-            { "Lunar Flare", ItemID.LunarFlareBook },
-            { "Lunar Portal Staff", ItemID.MoonlordTurretStaff },
-            { "Monk's Belt", ItemID.MonkBelt },
-            //{ "Mud Ball", ItemID.MudBallPlayer },
-            //{ "Mushroom Staff", ItemID.MushroomBoi },
-            { "Nebula Mantle", ItemID.WingsNebula },
-            { "Nightglow", ItemID.FairyQueenMagicItem },
-            { "Obsidian Longcoat", ItemID.ObsidianShirt },
-            { "Obsidian Outlaw Hat", ItemID.ObsidianHelm },
-            { "Pew-matic Horn", ItemID.PewMaticHorn },
-            { "Phantom Phoenix", ItemID.DD2PhoenixBow },
-            //{ "Possession", ItemID.MoonLordWhip },
-            { "Sky Dragon's Fury", ItemID.MonkStaffT3 },
-            { "Sleepy Octopod", ItemID.MonkStaffT1 },
-            { "Solar Wings", ItemID.WingsSolar },
-            { "Spectre Wings", ItemID.GhostWings },
-            { "Stardust Plate", ItemID.StardustBreastplate },
-            { "Stardust Wings", ItemID.WingsStardust },
-            { "Stellar Tune", ItemID.SparkleGuitar },
-            { "Sticky Dirt Bomb", ItemID.DirtStickyBomb },
-            { "Super Star Shooter", ItemID.SuperStarCannon },
-            //{ "Templar's Sling", ItemID.TemplarSling },
-            { "Terraprisma", ItemID.EmpressBlade },
-            { "The Bee's Knees", ItemID.BeesKnees },
-            { "Tome of Infinite Wisdom", ItemID.BookStaff },
-            { "Vortex Booster", ItemID.WingsVortex }
+            { "Aerial Bane", [ItemID.DD2BetsyBow] },
+            { "Amber Horseshoe Balloon", [ItemID.BalloonHorseshoeHoney] },
+            { "Apprentice's Scarf", [ItemID.ApprenticeScarf] },
+            //{ "Barrel Launcher", [ItemID.DeadCellsBarrelLauncher] },
+            { "Betsy's Wings", [ItemID.BetsyWings] },
+            { "Betsy's Wrath", [ItemID.ApprenticeStaffT3] },
+            { "Blade Staff", [ItemID.Smolstar] },
+            { "Brand of the Inferno", [ItemID.DD2SquireDemonSword] },
+            { "Celebration Mk2", [ItemID.Celeb2] },
+            { "Crystal Assassin Hood", [ItemID.CrystalNinjaHelmet] },
+            { "Crystal Assassin Pants", [ItemID.CrystalNinjaLeggings] },
+            { "Crystal Assassin Shirt", [ItemID.CrystalNinjaChestplate] },
+            { "Dark Harvest", [ItemID.ScytheWhip] },
+            { "Durendal", [ItemID.SwordWhip] },
+            //{ "Electric Eel", [ItemID.EelWhip] },
+            { "Empress Wings", [ItemID.RainbowWings] },
+            { "Eventide", [ItemID.FairyQueenRangedItem] },
+            { "Firecracker", [ItemID.FireWhip] },
+            //{ "Flairon", [ItemID.FlaironFlail] },
+            { "Flying Dragon", [ItemID.DD2SquireBetsySword] },
+            { "Cactus Greaves", [ItemID.CactusLeggings]},
+            { "Cactus Breastplate", [ItemID.CactusBreastplate]},
+            { "Cactus Helmet", [ItemID.CactusHelmet]},
+            //{ "Vasculash", [5475]},
+            { "Ghastly Glaive", [ItemID.MonkStaffT2] },
+            { "Hallowed Jousting Lance", [ItemID.HallowJoustingLance] },
+            { "Kaleidoscope", [ItemID.RainbowWhip] },
+            { "Luminite", [ItemID.LunarOre] },
+            { "Lunar Flare", [ItemID.LunarFlareBook] },
+            { "Lunar Portal Staff", [ItemID.MoonlordTurretStaff] },
+            { "Monk's Belt", [ItemID.MonkBelt] },
+            //{ "Mobius Strip", [6158] },
+
+            //{ "Mud Ball", [ItemID.MudBallPlayer] },
+            //{ "Mushroom Staff", [ItemID.MushroomBoi] },
+            { "Nebula Mantle", [ItemID.WingsNebula] },
+            { "Nightglow", [ItemID.FairyQueenMagicItem] },
+            { "Obsidian Longcoat", [ItemID.ObsidianShirt] },
+            { "Obsidian Outlaw Hat", [ItemID.ObsidianHelm] },
+            { "Pew-matic Horn", [ItemID.PewMaticHorn] },
+            { "Phantom Phoenix", [ItemID.DD2PhoenixBow] },
+            //{ "Possession", [ItemID.MoonLordWhip] },
+            { "Sky Dragon's Fury", [ItemID.MonkStaffT3] },
+            { "Sleepy Octopod", [ItemID.MonkStaffT1] },
+            { "Solar Wings", [ItemID.WingsSolar] },
+            { "Spectre Wings", [ItemID.GhostWings] },
+            { "Stardust Plate", [ItemID.StardustBreastplate] },
+            { "Stardust Wings", [ItemID.WingsStardust] },
+            { "Stellar Tune", [ItemID.SparkleGuitar] },
+            { "Sticky Dirt Bomb", [ItemID.DirtStickyBomb] },
+            { "Super Star Shooter", [ItemID.SuperStarCannon] },
+            //{ "Templar's Sling", [ItemID.TemplarSling] },
+            { "Terraprisma", [ItemID.EmpressBlade] },
+            { "The Bee's Knees", [ItemID.BeesKnees] },
+            { "Tome of Infinite Wisdom", [ItemID.BookStaff] },
+            { "Vortex Booster", [ItemID.WingsVortex] },
+            // Pre-Hardmode Ore Tiers
+            { "Tier 1 Bar", [ItemID.CopperBar, ItemID.TinBar] },
+            { "Tier 2 Bar", [ItemID.IronBar, ItemID.LeadBar] },
+            { "Tier 3 Bar", [ItemID.SilverBar, ItemID.TungstenBar] },
+            { "Tier 4 Bar", [ItemID.GoldBar, ItemID.PlatinumBar] },
+
+            // Hardmode Ore Tiers
+            { "Tier 9 Bar", [ItemID.CobaltBar, ItemID.PalladiumBar] },
+            { "Tier 10 Bar", [ItemID.MythrilBar, ItemID.OrichalcumBar] },
+            { "Tier 11 Bar", [ItemID.AdamantiteBar, ItemID.TitaniumBar] },
             //{ "Vulgar Display of Flower", ItemID.FlowerWhip }
         };
 
@@ -121,6 +137,13 @@ namespace SeldomDespArchipelago.Systems
 
             // Number of items the player has collected in this world
             public int collectedItems;
+
+            public List<double> lootRolls = new List<double>();
+
+            public Dictionary<string, List<int[]>> rarityPools =
+                new Dictionary<string, List<int[]>>();
+
+            public bool lootStateInitialized = false;
 
             // List of rewards received in this world, so they don't get reapplied. Saved in the
             // Terraria world instead of Archipelago data in case the player is, for example,
@@ -163,6 +186,16 @@ namespace SeldomDespArchipelago.Systems
                     [nameof(collectedItems)] = collectedItems,
                     [nameof(receivedRewards)] = receivedRewards,
                     [nameof(suspendedFlags)] = suspendedFlags.ToList(),
+                    [nameof(lootRolls)] = lootRolls,
+
+                    // Wrap the Dictionary into a List<TagCompound>
+                    [nameof(rarityPools)] = rarityPools.Select(kvp => new TagCompound
+                    {
+                        ["key"] = kvp.Key,
+                        ["pools"] = kvp.Value.Select(arr => arr.ToList()).ToList()
+                    }).ToList(),
+
+                    [nameof(lootStateInitialized)] = lootStateInitialized,
                 };
 
                 if (NPCRandoActive())
@@ -208,6 +241,27 @@ namespace SeldomDespArchipelago.Systems
                         .ToDictionary(x => x.Key, x => x.Value);
                 }
 
+                if (tag.TryGet(nameof(lootRolls), out List<double> savedLootRolls))
+                {
+                    world.lootRolls = savedLootRolls;
+                }
+
+                if (tag.TryGet(nameof(rarityPools), out List<TagCompound> rarityCompoundList))
+                {
+                    world.rarityPools = rarityCompoundList.ToDictionary(
+                        entry => entry.GetString("key"),
+                        entry => entry.GetList<List<int>>("pools")
+                                    .Select(poolList => poolList.ToArray())
+                                    .ToList()
+                    );
+                }
+
+                if (tag.ContainsKey(nameof(lootStateInitialized)))
+                {
+                    world.lootStateInitialized =
+                        tag.GetBool(nameof(lootStateInitialized));
+                }
+                
                 return world;
             }
         }
@@ -251,11 +305,12 @@ namespace SeldomDespArchipelago.Systems
             // rarityPools:
             //   The selected Terraria items grouped by rarity. GiveLootItem() consumes these lists
             //   as rewards are received.
-            public List<double> rolls = new List<double>();
-            public Dictionary<string, List<int>> rarityPools =
-                new Dictionary<string, List<int>>();
+            //public List<double> rolls = new List<double>();
+            //public Dictionary<string, List<int[]>> rarityPools =
+            //    new Dictionary<string, List<int[]>>();
 
-            public Dictionary<string, int> ItemNameToIdMap = new Dictionary<string, int>();
+            // Its fine to load this by hand everytime
+            public Dictionary<string, int[]> ItemNameToIdMap = new Dictionary<string, int[]>();
             public Dictionary<int, string> ItemIdToNameMap = new Dictionary<int, string>();
 
             
@@ -306,6 +361,7 @@ namespace SeldomDespArchipelago.Systems
             LoginResult result;
             ArchipelagoSession newSession;
 
+            //Attemps to connect to APWorld. If the connection fails, stop the Terraria World APWorld processing.
             try
             {
                 newSession = ArchipelagoSessionFactory.CreateSession(
@@ -386,25 +442,25 @@ namespace SeldomDespArchipelago.Systems
             {
                 // Safely converts JArray, List<object>, double[], or List<double>
                 // into List<double>.
-                session.rolls = JArray
+                world.lootRolls = JArray
                     .FromObject(rollsObj)
                     .ToObject<List<double>>();
 
-                if (session.rolls == null)
+                if (world.lootRolls == null)
                 {
-                    session.rolls = new List<double>();
+                    world.lootRolls = new List<double>();
                     Mod.Logger.Warn(
                         "[Archipelago] 'rolls' converted to null. Initialized empty list."
                     );
                 }
 
                 Mod.Logger.Info(
-                    $"[Archipelago] Loaded {session.rolls.Count} rolls successfully."
+                    $"[Archipelago] Loaded {world.lootRolls.Count} rolls successfully."
                 );
             }
             else
             {
-                session.rolls = new List<double>();
+                world.lootRolls = new List<double>();
 
                 Mod.Logger.Warn(
                     "[Archipelago] 'rolls' key missing or null in SlotData. " +
@@ -420,24 +476,24 @@ namespace SeldomDespArchipelago.Systems
                 .ToObject<Dictionary<string, List<string>>>();
 
             // Thread-safe dictionary to map item names to resolved integer IDs for clientSend / AP sync
-            session.ItemNameToIdMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            session.ItemNameToIdMap = new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase);
 
-            session.rarityPools = rarityPoolNames.ToDictionary(
+            world.rarityPools = rarityPoolNames.ToDictionary(
                 kvp => kvp.Key,
                 kvp => kvp.Value.Select(name =>
                 {
                     string searchName = name;
-                    int resolvedId = 0;
+                    int[] resolvedId = [0];
 
                     // 1. Check if an explicit internal ID exception exists for this item name
-                    if (SpecialMappings.TryGetValue(name, out int itemid))
+                    if (SpecialMappings.TryGetValue(name, out int[] itemids))
                     {
-                        resolvedId = itemid;
+                        resolvedId = itemids;
                     }
                     // 2. Check if exact name exists in ItemID.Search
                     else if (ItemID.Search.ContainsName(searchName))
                     {
-                        resolvedId = ItemID.Search.GetId(searchName);
+                        resolvedId = [ItemID.Search.GetId(searchName)];
                     }
                     else
                     {
@@ -445,31 +501,31 @@ namespace SeldomDespArchipelago.Systems
                         searchName = name.Replace(" ", "").Replace("'", "");
                         if (ItemID.Search.ContainsName(searchName))
                         {
-                            resolvedId = ItemID.Search.GetId(searchName);
+                            resolvedId = [ItemID.Search.GetId(searchName)];
                         }
                     }
 
                     // 4. Fallback for Modded Items (via ModLoader)
-                    if (resolvedId == 0)
+                    if (resolvedId.Equals(new int [0]))
                     {
                         foreach (Mod mod in ModLoader.Mods)
                         {
                             if (mod.TryFind<ModItem>(name, out ModItem modItem) || 
                                 mod.TryFind<ModItem>(searchName, out modItem))
                             {
-                                resolvedId = modItem.Type;
+                                resolvedId = [modItem.Type];
                                 break;
                             }
                         }
                     }
 
                     // Validate result
-                    if (resolvedId <= 0)
+                    if (resolvedId.Length >= 1 && resolvedId[0] <= 0)
                     {
                         Mod.Logger.Warn(
                             $"[Archipelago] FAILED to load item: '{name}' (searched as: '{searchName}')"
                         );
-                        return 0;
+                        return [0];
                     }
 
                     // Map the item name to its resolved ID for clientSend/session lookups
@@ -477,17 +533,20 @@ namespace SeldomDespArchipelago.Systems
 
                     return resolvedId;
                 })
-                .Where(id => id > 0) // Exclude failed resolutions
+                .Where(id => id.Length >= 1 && id[0] > 0) // Exclude failed resolutions
                 .ToList()
             );
 
-            // Populate Reverse Lookup Map (ID -> Name) if clientSend requires lookups by ID
+            // Populate Reverse Lookup Map (ID -> Name)
             session.ItemIdToNameMap = session.ItemNameToIdMap
-                .GroupBy(kvp => kvp.Value)
-                .ToDictionary(g => g.Key, g => g.First().Key);
+                .SelectMany(kvp => kvp.Value.Select(id => new { Id = id, Name = kvp.Key }))
+                .GroupBy(x => x.Id)
+                .ToDictionary(g => g.Key, g => g.First().Name);
                        // Register every rarity-pool item as a ghost item.
+
+            GhostItemSystem.ClearIDs();
             GhostItemSystem.SetGhostItems(
-                session.rarityPools.Values.SelectMany(ids => ids)
+                world.rarityPools.Values.SelectMany(ids => ids) //set anything that is still in the rarity pool as a ghost
             );
 
             Mod.Logger.Info(
@@ -2236,11 +2295,11 @@ namespace SeldomDespArchipelago.Systems
                 );
 
                 info.Add(
-                    $"You have {session.rolls?.Count ?? 0} rarity rolls remaining"
+                    $"You have {world.lootRolls?.Count ?? 0} rarity rolls remaining"
                 );
 
                 info.Add(
-                    $"Rarity pools: {session.rarityPools?.Count ?? 0}"
+                    $"Rarity pools: {world.lootRolls?.Count ?? 0}"
                 );
 
                 info.Add(
@@ -2540,14 +2599,14 @@ namespace SeldomDespArchipelago.Systems
             // list's type rather than whether it is null or empty.
             Mod.Logger.Error(
                 $"[AP] Loot state: " +
-                $"rollsNull={session.rolls == null}, " +
-                $"rollCount={session.rolls?.Count ?? -1}, " +
-                $"rarityPoolsNull={session.rarityPools == null}, " +
-                $"rarityPoolCount={session.rarityPools?.Count ?? -1}, " +
+                $"rollsNull={world.lootRolls == null}, " +
+                $"rollCount={world.lootRolls?.Count ?? -1}, " +
+                $"rarityPoolsNull={world.rarityPools == null}, " +
+                $"rarityPoolCount={world.rarityPools?.Count ?? -1}, " +
                 $"worldRarity={rarity}"
             );
 
-            if (session.rolls == null || session.rolls.Count == 0)
+            if (world.lootRolls == null || world.lootRolls.Count == 0)
             {
                 Mod.Logger.Error(
                     "[AP] Cannot give Loot Item: no rarity rolls remain."
@@ -2557,8 +2616,8 @@ namespace SeldomDespArchipelago.Systems
             }
 
             if (
-                session.rarityPools == null ||
-                session.rarityPools.Count == 0
+                world.lootRolls == null ||
+                world.lootRolls.Count == 0
             )
             {
                 Mod.Logger.Error(
@@ -2569,8 +2628,7 @@ namespace SeldomDespArchipelago.Systems
             }
 
             // Consume the next predetermined roll.
-            double roll = session.rolls[0];
-            session.rolls.RemoveAt(0);
+            double roll = world.lootRolls[0];
 
             // Pick an initial rarity from 0 through the current world rarity.
             int selectedRarity =
@@ -2581,16 +2639,16 @@ namespace SeldomDespArchipelago.Systems
                 $"roll={roll:F4}, " +
                 $"input rarity={rarity}, " +
                 $"calculated selectedRarity={selectedRarity}. " +
-                $"Remaining rolls in queue: {session.rolls.Count}"
+                $"Remaining rolls in queue: {world.lootRolls.Count}"
             );
 
             // Diagnostic: Log current available rarity pool state
             Mod.Logger.Info(
                 $"[AP] Current Rarity Pools State " +
-                $"(Total registered keys: {session.rarityPools.Count}):"
+                $"(Total registered keys: {world.rarityPools.Count}):"
             );
 
-            foreach (var kvp in session.rarityPools)
+            foreach (var kvp in world.rarityPools)
             {
                 Mod.Logger.Info(
                     $"  - Key: '{kvp.Key}' | " +
@@ -2611,26 +2669,31 @@ namespace SeldomDespArchipelago.Systems
                     $"{currentRarity}";
 
                 if (
-                    session.rarityPools.TryGetValue(
+                    world.rarityPools.TryGetValue(
                         poolName,
-                        out List<int> pool
+                        out List<int[]> pool
                     )
                 )
                 {
                     if (pool != null && pool.Count > 0)
                     {
-                        int item = pool[0];
+                        int[] items = pool[0];
                         pool.RemoveAt(0);
 
-                        Mod.Logger.Info(
-                            $"[AP] Success! Found item {item} " +
+                        foreach (int item in items)
+                        {
+                            Mod.Logger.Info(
+                            $"[AP] Success! Found item {items} " +
                             $"({ItemID.Search.GetName(item)}) in '{poolName}' " +
                             $"(attempt {checkedRarities + 1}/11). " +
-                            $"Remaining in '{poolName}': {pool.Count}."
-                        );
+                            $"Remaining in '{poolName}': {pool.Count}.");
 
-                        // Give the unghosted item through the existing GiveItem overload.
-                        GiveItem(item);
+                            GiveItem(item);// Give the unghosted item through the existing GiveItem overload.
+                            //TODO: mark item as recieved
+                            GhostItemSystem.setRecievedItem(item);
+                        }
+
+                        world.lootRolls.RemoveAt(0);
                         return;
                     }
                     else
@@ -2640,6 +2703,8 @@ namespace SeldomDespArchipelago.Systems
                             "but the list is empty (0 items)."
                         );
                     }
+
+
                 }
                 else
                 {

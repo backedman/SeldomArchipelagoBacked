@@ -11,7 +11,7 @@ using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
-namespace SeldomDespArchipelago
+namespace SeldomDespArchipelago.Systems
 {
     // 1. System to track active ghost pools, consumed checks,
     //    and handle world purges & recipe blocking
@@ -24,16 +24,29 @@ namespace SeldomDespArchipelago
         // Blocks crafting & future natural drops.
         public static HashSet<int> ConsumedGhostIDs = new HashSet<int>();
 
+        //Item IDs whose item has already been recieved by the archipelago server
+        public static HashSet<int> RecievedGhostIDs = new HashSet<int>();
+
         public override void OnWorldLoad()
         {
-            GhostItemIDs.Clear();
-            ConsumedGhostIDs.Clear();
+            //The ItemID clearing will happen in ArchipelagoSystem to make sure it gets cleared before assignment and never after
+            //GhostItemIDs.Clear();
+            //ConsumedGhostIDs.Clear();
         }
 
         public override void OnWorldUnload()
         {
+            Mod.Logger.Warn("We are unloading the world");
             GhostItemIDs.Clear();
             ConsumedGhostIDs.Clear();
+            RecievedGhostIDs.Clear();
+        }
+
+        public static void ClearIDs()
+        {
+            GhostItemIDs.Clear();
+            ConsumedGhostIDs.Clear();
+            RecievedGhostIDs.Clear();
         }
 
         /// <summary>
@@ -41,11 +54,26 @@ namespace SeldomDespArchipelago
         /// This also refreshes recipe result templates so recipes for ghost items
         /// display their results as ghosted.
         /// </summary>
-        public static void SetGhostItems(IEnumerable<int> itemIds)
+        public static void SetGhostItems(IEnumerable<int[]> itemIds)
         {
-            GhostItemIDs = new HashSet<int>(itemIds);
+            
+            GhostItemIDs = new HashSet<int>(itemIds.SelectMany(ids => ids));
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Set {itemIds.ToList().Count}");
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"GhostPool=[{string.Join(", ", GhostItemSystem.GhostItemIDs)}]");
+            
 
             RefreshGhostRecipeResults();
+        }
+
+        public static void setRecievedItem(int itemID)
+        {
+            RecievedGhostIDs.Add(itemID);
+        }
+
+        // The only time this item should fully act like vanilla is if this is true. It means the ghost item has been used AND the item has been recieved
+        public static bool isEnabled(int itemID)
+        {
+            return RecievedGhostIDs.Contains(itemID) && ConsumedGhostIDs.Contains(itemID);
         }
 
         /// <summary>
@@ -67,14 +95,16 @@ namespace SeldomDespArchipelago
 
                 int resultType = recipe.createItem.type;
 
-                if (!GhostItemIDs.Contains(resultType))
-                    continue;
-
-                if (recipe.createItem.TryGetGlobalItem<GhostItemGlobal>(
-                    out var ghost))
+                //if item is supposed to be a ghost, mark as a ghost
+                if (GhostItemIDs.Contains(resultType))
                 {
-                    ghost.isGhostCheck = true;
+                    if (recipe.createItem.TryGetGlobalItem<GhostItemGlobal>(
+                    out var ghost))
+                    {
+                        ghost.isGhostCheck = true;
+                    }
                 }
+
             }
         }
 
@@ -115,10 +145,22 @@ namespace SeldomDespArchipelago
 
                 int resultType = recipe.createItem.type;
 
-                recipe.AddCondition(
+                //if the item is enabled/vanilla, skip
+                if (isEnabled(resultType))
+                {
+                    continue;
+                }
+
+                //if the item is a consumed ghost, disable crafting recipe
+                if (ConsumedGhostIDs.Contains(resultType))
+                {
+                    recipe.AddCondition(
                     conditionText,
-                    () => !ConsumedGhostIDs.Contains(resultType)
-                );
+                    () => false
+                    );
+                }
+
+
             }
         }
 
@@ -157,6 +199,7 @@ namespace SeldomDespArchipelago
                     if (containedItem.type != itemId)
                         continue;
 
+                    // Delete item if it is a ghost of the consumed item. Only deleting the ones with "isGhostCheck" set to true avoids deleting the gifted items
                     if (containedItem.TryGetGlobalItem<GhostItemGlobal>(
                         out var ghost) &&
                         ghost.isGhostCheck)
@@ -193,6 +236,7 @@ namespace SeldomDespArchipelago
                 if (groundItem.type != itemId)
                     continue;
 
+                // Delete item if it is a ghost of the consumed item. Only deleting the ones with "isGhostCheck" set to true avoids deleting the gifted items
                 if (groundItem.TryGetGlobalItem<GhostItemGlobal>(
                     out var ghost) &&
                     ghost.isGhostCheck)
@@ -213,7 +257,10 @@ namespace SeldomDespArchipelago
         {
             tag["GhostItemIDs"] = GhostItemIDs.ToList();
             tag["ConsumedGhostIDs"] = ConsumedGhostIDs.ToList();
+            tag["RecievedGhostIDs"] = RecievedGhostIDs.ToList();
+            
         }
+
 
         public override void LoadWorldData(TagCompound tag)
         {
@@ -221,14 +268,22 @@ namespace SeldomDespArchipelago
                 "GhostItemIDs",
                 out List<int> ghostList))
             {
-                GhostItemIDs = new HashSet<int>(ghostList);
+                Mod.Logger.Info("Loading GhsotItemIDs");
+                //GhostItemIDs = new HashSet<int>(ghostList); //We don't need to have these saved and overwritten tbh. They can be assigned wholly in ArchipelagoSystem
             }
 
             if (tag.TryGet(
                 "ConsumedGhostIDs",
                 out List<int> consumedList))
             {
-                ConsumedGhostIDs = new HashSet<int>(consumedList);
+                //ConsumedGhostIDs = new HashSet<int>(consumedList); //Filled manually from world.collectedItems
+            }
+
+            if (tag.TryGet(
+                "RecievedGhostIDs",
+                out List<int> recievedList))
+            {
+                //RecievedGhostIDs = new HashSet<int>(recievedList); //Filled manually from world.receivedRewards
             }
 
             // Make sure recipe result templates reflect loaded ghost IDs.
@@ -254,13 +309,13 @@ namespace SeldomDespArchipelago
         /// This is intentionally different from isGhostCheck, which preserves
         /// the historical fact that a particular item instance was a ghost.
         /// </summary>
-        public bool IsActiveGhost(Item item)
+        public bool IsUnconsumedGhost(Item item)
         {
             if (GhostItemSystem.ConsumedGhostIDs.Contains(item.type))
                 return false;
 
-            return isGhostCheck ||
-                   GhostItemSystem.GhostItemIDs.Contains(item.type);
+            //return if ghost is unconsumed (true if in Ghost list AND not in Consumed Ghost)
+            return GhostItemSystem.GhostItemIDs.Contains(item.type) && !GhostItemSystem.ConsumedGhostIDs.Contains(item.type);
         }
 
         public override GlobalItem Clone(
@@ -287,8 +342,11 @@ namespace SeldomDespArchipelago
             Item item,
             ItemCreationContext context)
         {
-            if (GhostItemSystem.GhostItemIDs.Contains(item.type) &&
-                !GhostItemSystem.ConsumedGhostIDs.Contains(item.type))
+            //if the item is vanilla/enabled, set ghost check to false
+            if(GhostItemSystem.isEnabled(item.type)){
+                isGhostCheck = false;
+            }
+            else
             {
                 isGhostCheck = true;
             }
@@ -296,17 +354,17 @@ namespace SeldomDespArchipelago
 
         // --- Strip Equipment Slots & Stats ---
 
-        public override void SetDefaults(Item item)
-        {
-            if (IsActiveGhost(item))
-            {
-                item.accessory = false;
-                item.headSlot = -1;
-                item.bodySlot = -1;
-                item.legSlot = -1;
-                item.wingSlot = 0;
-            }
-        }
+        //public override void SetDefaults(Item item)
+        //{
+        //    if (GhostItemSystem.isEnabled(item.type))
+        //    {
+        //        item.accessory = false;
+        //        item.headSlot = -1;
+        //        item.bodySlot = -1;
+        //        item.legSlot = -1;
+        //        item.wingSlot = 0;
+        //    }
+        //}
 
         public override bool CanEquipAccessory(
             Item item,
@@ -314,7 +372,7 @@ namespace SeldomDespArchipelago
             int slot,
             bool modded)
         {
-            if (IsActiveGhost(item))
+            if (GhostItemSystem.isEnabled(item.type))
             {
                 return false;
             }
@@ -328,34 +386,59 @@ namespace SeldomDespArchipelago
         }
 
         // --- Block Natural Drops After Check Sent ---
-
         public override void OnSpawn(
             Item item,
             IEntitySource source)
         {
-            // Once the check has been consumed, prevent future natural
-            // instances from existing.
-            if (GhostItemSystem.ConsumedGhostIDs.Contains(item.type))
+            Mod.Logger.Info(
+                $"[GhostDebug] OnSpawn: {item.Name} ({item.type}) | " +
+                $"GhostPool={GhostItemSystem.GhostItemIDs.Contains(item.type)} | " +
+                $"Consumed={GhostItemSystem.ConsumedGhostIDs.Contains(item.type)} | " +
+                $"Source={source?.GetType().Name}"
+            );
+
+            Mod.Logger.Info($"GhostPool=[{string.Join(", ", GhostItemSystem.GhostItemIDs)}]");
+            int itemId = item.type;
+
+            //if item is Consumed AND Recieved, return w/o doing anything/dont mark as a ghost
+            if (GhostItemSystem.isEnabled(itemId))
             {
-                item.TurnToAir();
+                isGhostCheck = false;
                 return;
             }
 
-            // Mark naturally spawned copies as ghosts while the item is
-            // still an active Archipelago check.
-            if (GhostItemSystem.GhostItemIDs.Contains(item.type))
+            //if Item is Consumed, not Recieved, delete
+
+            //if Item is not Consumed, recieved, mark ghost
+
+            //if is an unconsumed ghost, mark it as a ghost
+            if(GhostItemSystem.GhostItemIDs.Contains(itemId))
             {
+                //if it is a consumed ghost, delete it
+                if (GhostItemSystem.ConsumedGhostIDs.Contains(itemId))
+                {
+                    item.TurnToAir();
+                    return;
+                }
+                
+                //if it is an unconsumed ghost, keep it and mark it as a ghost
                 isGhostCheck = true;
+
+                Mod.Logger.Info(
+                    $"[GhostDebug] MARKED GHOST: {item.Name} ({item.type})"
+                );
             }
         }
-
         // --- Usage & Tooltip Rules ---
-
         public override void ModifyTooltips(
             Item item,
             List<TooltipLine> tooltips)
         {
-            if (IsActiveGhost(item))
+
+            //if vanilla, do nothing
+
+            //if unconsumed ghost, modify
+            if (IsUnconsumedGhost(item))
             {
                 var line = new TooltipLine(
                     Mod,
@@ -375,7 +458,9 @@ namespace SeldomDespArchipelago
             Item item,
             Player player)
         {
-            if (IsActiveGhost(item))
+
+            //if the ghost is unconsumed, send the location check and mark consumed
+            if (IsUnconsumedGhost(item))
             {
                 int itemId = item.type;
 
@@ -422,7 +507,7 @@ namespace SeldomDespArchipelago
             Item item,
             Player player)
         {
-            if (IsActiveGhost(item))
+            if (IsUnconsumedGhost(item))
             {
                 return true;
             }
@@ -434,7 +519,7 @@ namespace SeldomDespArchipelago
             Item item,
             Player player)
         {
-            if (IsActiveGhost(item))
+            if (IsUnconsumedGhost(item))
             {
                 if (item.useStyle == ItemUseStyleID.None)
                 {
@@ -486,7 +571,7 @@ namespace SeldomDespArchipelago
             Vector2 origin,
             float scale)
         {
-            if (IsActiveGhost(item))
+            if (IsUnconsumedGhost(item))
             {
                 Main.GetItemDrawFrame(
                     item.type,
@@ -543,7 +628,7 @@ namespace SeldomDespArchipelago
             ref float scale,
             int whoAmI)
         {
-            if (IsActiveGhost(item))
+            if (IsUnconsumedGhost(item))
             {
                 Main.GetItemDrawFrame(
                     item.type,
