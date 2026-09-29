@@ -65,6 +65,26 @@ namespace SeldomDespArchipelago.Systems
             RefreshGhostRecipeResults();
         }
 
+        public static void SetRecievedItems(IEnumerable<int[]> itemIds)
+        {
+            RecievedGhostIDs = new HashSet<int>(itemIds.SelectMany(ids => ids));
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Set {itemIds.ToList().Count}");
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"GhostPool=[{string.Join(", ", GhostItemSystem.GhostItemIDs)}]");
+            
+
+            RefreshGhostRecipeResults();
+        }
+
+        public static void SetConsumedItems(IEnumerable<int[]> itemIds)
+        {
+            ConsumedGhostIDs = new HashSet<int>(itemIds.SelectMany(ids => ids));
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"Set {itemIds.ToList().Count}");
+            ModContent.GetInstance<SeldomArchipelago>().Logger.Info($"GhostPool=[{string.Join(", ", GhostItemSystem.GhostItemIDs)}]");
+            
+
+            RefreshGhostRecipeResults();
+        }
+
         public static void setRecievedItem(int itemID)
         {
             RecievedGhostIDs.Add(itemID);
@@ -311,11 +331,16 @@ namespace SeldomDespArchipelago.Systems
         /// </summary>
         public bool IsUnconsumedGhost(Item item)
         {
+            // 1. If this specific item instance is NOT a ghost, it acts like a normal item.
+            if (!isGhostCheck)
+                return false;
+
+            // 2. If it WAS a ghost, but the check has already been consumed globally, it is no longer an active ghost.
             if (GhostItemSystem.ConsumedGhostIDs.Contains(item.type))
                 return false;
 
-            //return if ghost is unconsumed (true if in Ghost list AND not in Consumed Ghost)
-            return GhostItemSystem.GhostItemIDs.Contains(item.type) && !GhostItemSystem.ConsumedGhostIDs.Contains(item.type);
+            // 3. Otherwise, it is an active, unconsumed ghost check.
+            return GhostItemSystem.GhostItemIDs.Contains(item.type);
         }
 
         public override GlobalItem Clone(
@@ -342,8 +367,9 @@ namespace SeldomDespArchipelago.Systems
             Item item,
             ItemCreationContext context)
         {
-            //if the item is vanilla/enabled, set ghost check to false
-            if(GhostItemSystem.isEnabled(item.type)){
+            //if item is not supposed to be a ghost or if the item is recieved and consumed, set ghost check to false
+            //
+            if(!GhostItemSystem.GhostItemIDs.Contains(item.type) || GhostItemSystem.isEnabled(item.type)){
                 isGhostCheck = false;
             }
             else
@@ -372,9 +398,11 @@ namespace SeldomDespArchipelago.Systems
             int slot,
             bool modded)
         {
-            if (GhostItemSystem.isEnabled(item.type))
+
+            //unequipable if isGhostCheck is true
+            if (GhostItemSystem.GhostItemIDs.Contains(item.type))
             {
-                return false;
+                return !isGhostCheck;
             }
 
             return base.CanEquipAccessory(
@@ -390,6 +418,11 @@ namespace SeldomDespArchipelago.Systems
             Item item,
             IEntitySource source)
         {
+            if (!GhostItemSystem.GhostItemIDs.Contains(item.type))
+            {
+                return;
+            }
+            
             Mod.Logger.Info(
                 $"[GhostDebug] OnSpawn: {item.Name} ({item.type}) | " +
                 $"GhostPool={GhostItemSystem.GhostItemIDs.Contains(item.type)} | " +
@@ -400,34 +433,55 @@ namespace SeldomDespArchipelago.Systems
             Mod.Logger.Info($"GhostPool=[{string.Join(", ", GhostItemSystem.GhostItemIDs)}]");
             int itemId = item.type;
 
-            //if item is Consumed AND Recieved, return w/o doing anything/dont mark as a ghost
+            if (source is ArchipelagoEntitySource)
+            {
+                Mod.Logger.Info("Source is ArchipelagoEntitySource");
+                isGhostCheck = false;
+                return;
+            }
+
+            // if item is Consumed AND Received, return w/o doing anything/dont mark as a ghost
             if (GhostItemSystem.isEnabled(itemId))
             {
                 isGhostCheck = false;
                 return;
             }
 
-            //if Item is Consumed, not Recieved, delete
-
-            //if Item is not Consumed, recieved, mark ghost
-
-            //if is an unconsumed ghost, mark it as a ghost
-            if(GhostItemSystem.GhostItemIDs.Contains(itemId))
+            // if is an unconsumed ghost, mark it as a ghost
+            if (GhostItemSystem.GhostItemIDs.Contains(itemId))
             {
-                //if it is a consumed ghost, delete it
+                // if it is a consumed ghost, delete it
                 if (GhostItemSystem.ConsumedGhostIDs.Contains(itemId))
                 {
                     item.TurnToAir();
                     return;
                 }
                 
-                //if it is an unconsumed ghost, keep it and mark it as a ghost
+                // if it is an unconsumed ghost, keep it and mark it as a ghost
                 isGhostCheck = true;
+                
+                // ==========================================
+                // APPLY GHOST ITEM PROPERTIES HERE
+                // ==========================================
+                if (item.useStyle == ItemUseStyleID.None)
+                {
+                    item.useStyle = ItemUseStyleID.HoldUp;
+                    item.useTime = 30;
+                    item.useAnimation = 30;
+                    item.consumable = true;
+                }
+
+                item.accessory = false;
+                item.headSlot = -1;
+                item.bodySlot = -1;
+                item.legSlot = -1;
+                item.wingSlot = 0;
+                // ==========================================
 
                 Mod.Logger.Info(
                     $"[GhostDebug] MARKED GHOST: {item.Name} ({item.type})"
                 );
-            }
+            }   
         }
         // --- Usage & Tooltip Rules ---
         public override void ModifyTooltips(

@@ -548,6 +548,40 @@ namespace SeldomDespArchipelago.Systems
             GhostItemSystem.SetGhostItems(
                 world.rarityPools.Values.SelectMany(ids => ids) //set anything that is still in the rarity pool as a ghost
             );
+            
+            GhostItemSystem.SetRecievedItems(
+                session.session.Items.AllItemsReceived
+                    .Select(item => {
+                        // Get item name via session helper or ItemInfo property
+                        string itemName = item.ItemName;
+
+                        if (!session.ItemNameToIdMap.Keys.Contains(itemName))
+                        {
+                            return [];
+                        }
+                        
+                        // Look up ID in ItemNameToIdMap (casts long to int for tModLoader)
+                        int[] ids = session.ItemNameToIdMap[itemName];                        
+                        return ids;
+                    })
+                    .ToList()
+            );
+            GhostItemSystem.SetConsumedItems(
+                session.session.Locations.AllLocationsChecked
+                    .Select(location => {
+                        // Get item name via session helper or ItemInfo property
+                        string itemName = session.session.Locations.GetLocationNameFromId(location);
+                        if (!session.ItemNameToIdMap.Keys.Contains(itemName))
+                        {
+                            return [];
+                        }
+                        
+                        // Look up ID in ItemNameToIdMap (casts long to int for tModLoader)
+                        int[] ids = session.ItemNameToIdMap[itemName];                        
+                        return ids;
+                    })
+                    .ToList()
+                );
 
             Mod.Logger.Info(
                 $"[Archipelago] GhostItemSystem loaded " +
@@ -558,6 +592,23 @@ namespace SeldomDespArchipelago.Systems
             {
                 Mod.Logger.Info(
                     $"[Archipelago] Registered Ghost Item ID: " +
+                    $"{id} ({ItemID.Search.GetName(id)})"
+                );
+            }
+
+            foreach (int id in GhostItemSystem.RecievedGhostIDs)
+            {
+                Mod.Logger.Info(
+                    $"[Archipelago] Registered RECIEVED Item ID: " +
+                    $"{id} ({ItemID.Search.GetName(id)})"
+                );
+            }
+
+
+            foreach (int id in GhostItemSystem.ConsumedGhostIDs)
+            {
+                Mod.Logger.Info(
+                    $"[Archipelago] Registered CONSUMED/SENT Item ID: " +
                     $"{id} ({ItemID.Search.GetName(id)})"
                 );
             }
@@ -2729,7 +2780,7 @@ namespace SeldomDespArchipelago.Systems
                 item,
                 player =>
                     player.QuickSpawnItem(
-                        player.GetSource_GiftOrReward(),
+                        new ArchipelagoEntitySource(player),
                         item,
                         1
                     )
