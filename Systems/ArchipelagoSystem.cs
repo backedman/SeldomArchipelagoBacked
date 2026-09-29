@@ -545,27 +545,30 @@ namespace SeldomDespArchipelago.Systems
                        // Register every rarity-pool item as a ghost item.
 
             GhostItemSystem.ClearIDs();
+
+            // Set all the items that are meant to be received as items and checked as locations
             GhostItemSystem.SetGhostItems(
                 world.rarityPools.Values.SelectMany(ids => ids) //set anything that is still in the rarity pool as a ghost
             );
             
-            GhostItemSystem.SetRecievedItems(
-                session.session.Items.AllItemsReceived
-                    .Select(item => {
-                        // Get item name via session helper or ItemInfo property
-                        string itemName = item.ItemName;
+            // Grab the actual world arrays (from your AP ModSystem or World class)
+            List<double> currentRolls = world.lootRolls;
+            Dictionary<string, List<int[]>> currentPools = world.rarityPools;
 
-                        if (!session.ItemNameToIdMap.Keys.Contains(itemName))
-                        {
-                            return [];
-                        }
-                        
-                        // Look up ID in ItemNameToIdMap (casts long to int for tModLoader)
-                        int[] ids = session.ItemNameToIdMap[itemName];                        
-                        return ids;
-                    })
-                    .ToList()
-            );
+            // Initialize the simulation object
+            var dryRun = new DryRunState(currentRolls, currentPools);
+
+            // Evaluate the chronological sequence
+            String[] AllItemsReceived_Str = session.session.Items.AllItemsReceived
+                                            .Select(item => item.ItemName)
+                                            .ToArray();
+            Mod.Logger.Debug(AllItemsReceived_Str);
+            List<int[]> fullyResolvedItems = dryRun.ProcessAllReceivedItems(AllItemsReceived_Str, session.ItemNameToIdMap);
+
+            // Set all the items that were received from others via Loot Item
+            GhostItemSystem.SetRecievedItems(fullyResolvedItems);
+
+            // Set all the items that were sent to others
             GhostItemSystem.SetConsumedItems(
                 session.session.Locations.AllLocationsChecked
                     .Select(location => {
@@ -1006,78 +1009,7 @@ namespace SeldomDespArchipelago.Systems
             }
         }
 
-        public int getRarity()
-        {
-            int rarity = 0;
-
-            // Rarity 1:
-            // #King Slime | #Eye of Cthulhu
-            if (NPC.downedSlimeKing || NPC.downedBoss1)
-            {
-                rarity = 1;
-            }
-
-            // Rarity 2:
-            // Rarity 1 & #Evil Boss
-            if (rarity >= 1 && NPC.downedBoss2)
-            {
-                rarity = 2;
-            }
-
-            // Rarity 3:
-            // Rarity 2 & (#Skeletron | #Queen Bee)
-            if (
-                rarity >= 2 &&
-                (NPC.downedBoss3 || NPC.downedQueenBee)
-            )
-            {
-                rarity = 3;
-            }
-
-            // Rarity 4:
-            // Rarity 3 & #Wall of Flesh
-            if (rarity >= 3 && Main.hardMode)
-            {
-                rarity = 4;
-            }
-
-            // Rarity 5:
-            // Rarity 4 & (@mech_boss(1) | #Queen Slime)
-            if (
-                rarity >= 4 &&
-                (NPC.downedMechBossAny || NPC.downedQueenSlime)
-            )
-            {
-                rarity = 5;
-            }
-
-            // Rarity 7:
-            // Rarity 5 & #Plantera
-            if (rarity >= 5 && NPC.downedPlantBoss)
-            {
-                rarity = 7;
-            }
-
-            // Rarity 8:
-            // Rarity 7 & (#Duke Fishron | #Empress of Light)
-            if (
-                rarity >= 7 &&
-                (NPC.downedFishron || NPC.downedEmpressOfLight)
-            )
-            {
-                rarity = 8;
-            }
-
-            // Rarity 10:
-            // Rarity 8 & #Moon Lord
-            if (rarity >= 8 && NPC.downedMoonlord)
-            {
-                rarity = 10;
-            }
-
-            return rarity;
-        }
-
+        
         public bool CheckFlag(string flag) => flag switch
         {
             "Post-King Slime" => NPC.downedSlimeKing,
@@ -2632,6 +2564,78 @@ namespace SeldomDespArchipelago.Systems
             }
         }
 
+        public int getRarity()
+        {
+            int rarity = 0;
+
+            // Rarity 1:
+            // #King Slime | #Eye of Cthulhu
+            if (NPC.downedSlimeKing || NPC.downedBoss1)
+            {
+                rarity = 1;
+            }
+
+            // Rarity 2:
+            // Rarity 1 & #Evil Boss
+            if (rarity >= 1 && NPC.downedBoss2)
+            {
+                rarity = 2;
+            }
+
+            // Rarity 3:
+            // Rarity 2 & (#Skeletron | #Queen Bee)
+            if (
+                rarity >= 2 &&
+                (NPC.downedBoss3 || NPC.downedQueenBee)
+            )
+            {
+                rarity = 3;
+            }
+
+            // Rarity 4:
+            // Rarity 3 & #Wall of Flesh
+            if (rarity >= 3 && Main.hardMode)
+            {
+                rarity = 4;
+            }
+
+            // Rarity 5:
+            // Rarity 4 & (@mech_boss(1) | #Queen Slime)
+            if (
+                rarity >= 4 &&
+                (NPC.downedMechBossAny || NPC.downedQueenSlime)
+            )
+            {
+                rarity = 5;
+            }
+
+            // Rarity 7:
+            // Rarity 5 & #Plantera
+            if (rarity >= 5 && NPC.downedPlantBoss)
+            {
+                rarity = 7;
+            }
+
+            // Rarity 8:
+            // Rarity 7 & (#Duke Fishron | #Empress of Light)
+            if (
+                rarity >= 7 &&
+                (NPC.downedFishron || NPC.downedEmpressOfLight)
+            )
+            {
+                rarity = 8;
+            }
+
+            // Rarity 10:
+            // Rarity 8 & #Moon Lord
+            if (rarity >= 8 && NPC.downedMoonlord)
+            {
+                rarity = 10;
+            }
+
+            return rarity;
+        }
+
         public void GiveLootItem()
         {
             if (session == null)
@@ -2871,6 +2875,184 @@ namespace SeldomDespArchipelago.Systems
                     }
                 )
             );
+        }
+
+        private class DryRunState
+        {
+            // Cloned state queues used to simulate consumption
+            public Queue<double> RollsQueue { get; private set; }
+            public Dictionary<string, Queue<int[]>> PoolsClone { get; private set; }
+            
+            // Running progression state
+            public HashSet<string> ActiveFlags { get; private set; }
+
+            public DryRunState(List<double> originalRolls, Dictionary<string, List<int[]>> originalPools)
+            {
+                ActiveFlags = new HashSet<string>();
+                RollsQueue = new Queue<double>(originalRolls ?? new List<double>());
+                PoolsClone = new Dictionary<string, Queue<int[]>>();
+
+                if (originalPools != null)
+                {
+                    foreach (var kvp in originalPools)
+                    {
+                        PoolsClone[kvp.Key] = new Queue<int[]>(kvp.Value);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Simulates GiveLootItem() based strictly on the dry-run's current ActiveFlags.
+            /// Returns the array of item IDs, or an empty array if out of rolls/items.
+            /// </summary>
+            public int[] ResolveLootItem()
+            {
+                if (RollsQueue.Count == 0)
+                {
+                    // Logging can be added here if needed
+                    return []; 
+                }
+
+                // Calculate rarity purely off the dry-run flags accumulated up to this exact point
+                int currentRarityLimit = GetDryRunRarity(ActiveFlags);
+
+                double roll = RollsQueue.Dequeue();
+                int selectedRarity = (int)(roll * (currentRarityLimit + 1));
+                
+                int searchRarity = selectedRarity;
+
+                for (int i = 0; i <= 10; i++)
+                {
+                    string poolName = $"{searchRarity}";
+
+                    if (PoolsClone.TryGetValue(poolName, out Queue<int[]> pool) && pool.Count > 0)
+                    {
+                        // Consume and return the item
+                        return pool.Dequeue();
+                    }
+
+                    // Wrap around if pool is empty
+                    searchRarity = (searchRarity + 1) % 11;
+                }
+
+                return [];
+            }
+
+            /// <summary>
+            /// Evaluates the entire Archipelago item history chronologically.
+            /// </summary>
+            public List<int[]> ProcessAllReceivedItems(String[] AllItemsReceived,Dictionary<string, int[]> ItemNameToIdMap)
+            {
+                var resolvedItems = new List<int[]>();
+
+                foreach (String item in AllItemsReceived)
+                {
+                    string itemName = item;
+                    if (string.IsNullOrEmpty(itemName)) continue;
+
+                    // A. Update dry-run progression state if the item is a progression flag
+                    if (FindFlag(itemName, out string matchedFlag))
+                    {
+                        ActiveFlags.Add(matchedFlag ?? itemName);
+                    }
+
+                    // B. Recreate the Loot Item algorithm using the current ActiveFlags state
+                    if (itemName == "Loot Item")
+                    {
+                        int[] resolvedLoot = ResolveLootItem();
+                        if (resolvedLoot.Length > 0)
+                        {
+                            resolvedItems.Add(resolvedLoot);
+                        }
+                    }
+                    // C. Standard Item Resolution
+                    else
+                    {
+                        if (ItemNameToIdMap.TryGetValue(itemName, out int[] standardIds))
+                        {
+                            resolvedItems.Add(standardIds);
+                        }
+                    }
+                }
+
+                return resolvedItems;
+            }
+
+            private static int GetDryRunRarity(HashSet<string> activeFlags)
+            {
+                int rarity = 0;
+
+                // Rarity 1:
+                // #King Slime | #Eye of Cthulhu
+                if (activeFlags.Contains("Post-King Slime") || activeFlags.Contains("Post-Eye of Cthulhu"))
+                {
+                    rarity = 1;
+                }
+
+                // Rarity 2:
+                // Rarity 1 & #Evil Boss
+                if (rarity >= 1 && activeFlags.Contains("Post-Evil Boss"))
+                {
+                    rarity = 2;
+                }
+
+                // Rarity 3:
+                // Rarity 2 & (#Skeletron | #Queen Bee)
+                if (
+                    rarity >= 2 &&
+                    (activeFlags.Contains("Post-Skeletron") || activeFlags.Contains("Post-Queen Bee"))
+                )
+                {
+                    rarity = 3;
+                }
+
+                // Rarity 4:
+                // Rarity 3 & #Wall of Flesh
+                if (rarity >= 3 && activeFlags.Contains("Hardmode"))
+                {
+                    rarity = 4;
+                }
+
+                // Rarity 5:
+                // Rarity 4 & (@mech_boss(1) | #Queen Slime)
+                // Note: NPC.downedMechBossAny means ANY of the three mech bosses.
+                if (
+                    rarity >= 4 &&
+                    (activeFlags.Contains("Post-The Twins") || 
+                    activeFlags.Contains("Post-The Destroyer") || 
+                    activeFlags.Contains("Post-Skeletron Prime") || 
+                    activeFlags.Contains("Post-Queen Slime"))
+                )
+                {
+                    rarity = 5;
+                }
+
+                // Rarity 7:
+                // Rarity 5 & #Plantera
+                if (rarity >= 5 && activeFlags.Contains("Post-Plantera"))
+                {
+                    rarity = 7;
+                }
+
+                // Rarity 8:
+                // Rarity 7 & (#Duke Fishron | #Empress of Light)
+                if (
+                    rarity >= 7 &&
+                    (activeFlags.Contains("Post-Duke Fishron") || activeFlags.Contains("Post-Empress of Light"))
+                )
+                {
+                    rarity = 8;
+                }
+
+                // Rarity 10:
+                // Rarity 8 & #Moon Lord
+                if (rarity >= 8 && activeFlags.Contains("Post-Moon Lord"))
+                {
+                    rarity = 10;
+                }
+
+                return rarity;
+            }    
         }
     }
 }

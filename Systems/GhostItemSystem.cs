@@ -141,20 +141,15 @@ namespace SeldomDespArchipelago.Systems
         }
 
         /// <summary>
-        /// Dynamically attaches conditions to recipes so that consumed check
-        /// items cannot be crafted.
-        ///
-        /// This condition intentionally does NOT check GhostItemIDs because
-        /// Archipelago slot data may not have loaded yet when PostAddRecipes runs.
-        /// The condition is evaluated dynamically whenever the recipe is used.
+        /// Attaches dynamic conditions to recipes during mod startup.
+        /// The condition closure is evaluated dynamically when crafting UI opens/updates.
         /// </summary>
         public override void PostAddRecipes()
         {
-            LocalizedText conditionText =
-                Language.GetOrRegister(
-                    "Mods.SeldomDespArchipelago.Conditions.LocationCheckSent",
-                    () => "Location Check Already Sent"
-                );
+            LocalizedText conditionText = Language.GetOrRegister(
+                "Mods.SeldomDespArchipelago.Conditions.LocationCheckSent",
+                () => "Location Check Already Sent"
+            );
 
             for (int i = 0; i < Recipe.numRecipes; i++)
             {
@@ -165,25 +160,31 @@ namespace SeldomDespArchipelago.Systems
 
                 int resultType = recipe.createItem.type;
 
-                //if the item is enabled/vanilla, skip
-                if (isEnabled(resultType))
-                {
-                    continue;
-                }
-
-                //if the item is a consumed ghost, disable crafting recipe
-                if (ConsumedGhostIDs.Contains(resultType))
-                {
-                    recipe.AddCondition(
+                // Attach a dynamic condition evaluated at runtime during gameplay.
+                // DO NOT wrap recipe.AddCondition inside static set checks here,
+                // because PostAddRecipes runs ONCE at mod load time when sets are empty.
+                recipe.AddCondition(
                     conditionText,
-                    () => false
-                    );
-                }
+                    () =>
+                    {
+                        // 1. If this item is not part of the Archipelago ghost pool, allow crafting.
+                        if (!GhostItemIDs.Contains(resultType))
+                            return true;
 
+                        // 2. If the check has been consumed AND received from AP, allow crafting vanilla item.
+                        if (isEnabled(resultType))
+                            return true;
 
+                        // 3. If the check was CONSUMED but NOT YET RECEIVED, BLOCK crafting.
+                        if (ConsumedGhostIDs.Contains(resultType) && !RecievedGhostIDs.Contains(resultType))
+                            return false;
+
+                        // 4. Otherwise (unconsumed ghost), allow crafting the ghost check instance.
+                        return true;
+                    }
+                );
             }
         }
-
         /// <summary>
         /// Explicitly deletes the trigger item and purges all ghost-tagged
         /// instances of the specified item ID from player inventory, banks,
