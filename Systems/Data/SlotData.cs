@@ -5,11 +5,14 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using Terraria.ID;
 using System.Linq;
 using System.Data;
 using static SeldomDespArchipelago.Systems.ArchipelagoSystem;
 using System.IO;
 using System.Configuration;
+using Terraria;
+using System.ComponentModel;
 
 namespace SeldomDespArchipelago.Systems.Data
 {
@@ -28,7 +31,9 @@ namespace SeldomDespArchipelago.Systems.Data
         // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
         // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
         public ImmutableDictionary<int, int> ItemsByNPC {get; init; }
+        public ImmutableDictionary<string, int> ComponentIDs {get; init; }
         public bool DepthRando {get; init; }
+        public bool ComponentsRando {get; init; }
         public bool Calamity {get; init; }
         public bool Fargo {get; init; }
         public SlotData() {}
@@ -42,10 +47,12 @@ namespace SeldomDespArchipelago.Systems.Data
             Deathlink = (bool)login.SlotData["deathlink"];
             NpcRando = isEnabled("npc_rando");
             DepthRando = isEnabled("depth_rando");
+            ComponentsRando = isEnabled("zenith_components"); // || (isEnabled("future_items")...);
             Calamity = isEnabled("calamity");
             Fargo = isEnabled("fargo");
             RandomizedNPCs = null;
             var itemsByNPC = new Dictionary<int, int>();
+            var componentIDs = new Dictionary<string, int>();
             if (NpcRando)
             {
                 string[] randomizedNPCnames = ((JArray)login.SlotData["randomize_npcs"]).ToObject<string[]>();
@@ -79,7 +86,24 @@ namespace SeldomDespArchipelago.Systems.Data
                     ModContent.GetInstance<ArchipelagoSystem>().Mod.Logger.Info("Failed to properly initialize " + nameof(ItemsByNPC));
                 }
             }
+            if (ComponentsRando)
+            {
+                string[] componentNames = ((JArray)login.SlotData["components"]).ToObject<string[]>();
+                foreach (string component in componentNames)
+                {
+                    if (ItemID.Search.TryGetId(component, out int id))
+                    {
+                        componentIDs[component] = id;
+                    }
+                    else
+                    {
+                        Main.NewText($"[Archipelago] Error: Could not resolve item ID for component '{component}'. Report this to the devs.", Microsoft.Xna.Framework.Color.Red);
+                    }
+                }
+            }
+            
             ItemsByNPC = NpcRando ? itemsByNPC.ToImmutableDictionary() : null;
+            ComponentIDs = ComponentsRando ? componentIDs.ToImmutableDictionary() : null;
         }
         public TagCompound SerializeData()
         {
@@ -92,6 +116,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 [nameof(Deathlink)] = Deathlink,
                 [nameof(NpcRando)] = NpcRando,
                 [nameof(DepthRando)] = DepthRando,
+                [nameof(ComponentsRando)] = ComponentsRando,
                 [nameof(Calamity)] = Calamity,
                 [nameof(Fargo)] = Fargo,
             };
@@ -120,6 +145,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 RandomizedNPCs = npcRando ? tag.GetList<int>(nameof(RandomizedNPCs)).ToImmutableHashSet() : null,
                 ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
                 DepthRando = tag.GetBool(nameof(DepthRando)),
+                ComponentsRando = tag.GetBool(nameof(ComponentsRando)),
                 Calamity = tag.GetBool(nameof(Calamity)),
                 Fargo = tag.GetBool(nameof(Fargo)),
             };
@@ -136,6 +162,7 @@ namespace SeldomDespArchipelago.Systems.Data
             writer.Write(string.Join(';', ItemsByNPC.Keys));
             writer.Write(string.Join(';', ItemsByNPC.Values));
             writer.Write(DepthRando);
+            writer.Write(ComponentsRando);
             writer.Write(Calamity);
             writer.Write(Fargo);
         }
@@ -153,6 +180,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 var itemsByNPCKeys = from i in reader.ReadString().Split(';') select int.Parse(i);
                 var itemsByNPCValues = from i in reader.ReadString().Split(';') select int.Parse(i);
                 bool depthRando = reader.ReadBoolean();
+                bool componentsRando = reader.ReadBoolean();
                 bool calamity = reader.ReadBoolean();
                 bool fargo = reader.ReadBoolean();
                 return new SlotData
@@ -166,6 +194,7 @@ namespace SeldomDespArchipelago.Systems.Data
                 RandomizedNPCs = randomizedNPCs,
                 ItemsByNPC = itemsByNPCKeys.Zip(itemsByNPCValues, (k, v) => KeyValuePair.Create(k, v)).ToImmutableDictionary(),
                 DepthRando = depthRando,
+                ComponentsRando = componentsRando,
                 Calamity = calamity,
                 Fargo = fargo,
             };
