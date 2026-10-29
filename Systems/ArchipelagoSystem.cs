@@ -296,6 +296,22 @@ namespace SeldomDespArchipelago.Systems
                 offline = null;
             }
 
+
+            
+            GhostItemSystem.ClearIDs();
+            if (ActiveSlot()?.ComponentIDs is ImmutableDictionary<string, int> components)
+            {
+                GhostItemSystem.SetGhostItems(components, delete_on_found: false, isReceivable: false);
+            }
+            foreach (var sentItem in session.session.Locations.AllLocationsChecked)
+            {
+                String itemName = session.session.Locations.GetLocationNameFromId(sentItem);
+                if(itemName.EndsWith(" Component"))
+                {
+                    GhostItemSystem.MarkSent(itemName);
+                }
+            }
+
             // Refresh suspended flags
             HashSet<string> collectedItems = (from item in session.session.Items.AllItemsReceived select item.ItemName).ToHashSet();
             world.suspendedFlags = (from flag in AvailableFlags where collectedItems.Contains(flag) && !CheckFlag(flag) select flag).ToHashSet();
@@ -854,6 +870,7 @@ namespace SeldomDespArchipelago.Systems
                 The NPC to Item dictionary is {(slot.ItemsByNPC is not null ? "active" : "empty")}" : "disabled"
             )}
             Depth Randomization is {EnabledOrDisabled(slot.DepthRando)}
+            Components are {EnabledOrDisabled(slot.ComponentsRando)}
             Calamity is {EnabledOrDisabled(slot.Calamity)}
             Fargos is {EnabledOrDisabled(slot.Fargo)}
             ");
