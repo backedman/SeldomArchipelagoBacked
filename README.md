@@ -50,6 +50,7 @@ For in-depth information on what each feature does, scroll down to the **Feature
 - Additional achievement classifications
 - Shimmer logic toggle
 - Health logic
+- YAML-less UT Support
 - Spoiler log compression
 - Advanced configuration for manual flag activation (building off of Hardmode Starter)
 - Advanced configuration for AP chat
@@ -148,13 +149,16 @@ If disabled, all transmutations or decrafting using Shimmer are disregarded in l
 ### Notes
 This option only covers optional transmutations via Shimmer. The player may still be expected to utilize the Shimmer when mandatory, i.e. transmuting a sparkle slime balloon into the diva slime.
 ## Health Logic
-The randomizer considers a maximum health requirement for each boss, requiring access to prior health upgrades depending on their intended stage of progression in vanilla.
+The randomizer considers a maximum health requirement for each boss, invasion, and event, requiring access to prior health upgrades depending on their intended stage of progression in vanilla.
 ### Notes
 - This option is intended for use with Calamity, and guarantees that early bosses like Leviathan & Anahita and Primordial Wyrm will not have to be fought with extremely inadequate gear.
   - It is ON by default.
 - All amounts are based off [the walkthrough from the official Calamity wiki](https://calamitymod.wiki.gg/wiki/Guide:Mod_progression).
 - Currently, each boss's health requirement cannot be fine-tuned. However, there is an additional handicap setting that allows you to decrease how many different types of max HP upgrades are needed for each boss.
   - For example, with Calamity enabled, setting the handicap to -2 would remove both the Sanguine Tangerine and Life Fruit requirement for Plantera, while Yharon would only require Life Crystals, Fruits, and one Calamity health upgrade (chosen between Sanguine Tangerine, Miracle Fruit, or Tainted Cloudberry)
+- If this option is enabled, UT will show a boss/event as glitched logic if they could otherwise be fought barring the health requirement.
+## YAML-less UT Support
+No YAML is required to connect the Universal Tracker to a Terraria Beta slot.
 ## Spoiler log compression
 The YAML option 'Compressed Playthrough', when enabled, hides events from the multiworld spoiler log's playthrough.
 ## Advanced Manual Flag Configuration
