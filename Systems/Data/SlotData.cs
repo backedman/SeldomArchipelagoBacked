@@ -21,21 +21,21 @@ namespace SeldomDespArchipelago.Systems.Data
     /// </summary>
     public readonly struct SlotData : TagSerializable
     {
-        public int Slot {get; init; }
-        public string Name {get; init; }
-        public string Seed {get; init; }
-        public ImmutableArray<string> Goals {get; init; }
-        public bool Deathlink {get; init;}
-        public bool NpcRando {get; init; }
-        public ImmutableHashSet<int> RandomizedNPCs {get; init; }
+        public int Slot { get; init; }
+        public string Name { get; init; }
+        public string Seed { get; init; }
+        public ImmutableArray<string> Goals { get; init; }
+        public bool Deathlink { get; init; }
+        public bool NpcRando { get; init; }
+        public ImmutableHashSet<int> RandomizedNPCs { get; init; }
         // Dict of loc npc ids to item npc ids, if a player's npc item happens to be placed in one of their npc locations.
         // If this is the case, we can transform the ghost/bound npc into the item npc as soon as it is activated, for both expediency and cuteness.
-        public ImmutableDictionary<int, int> ItemsByNPC {get; init; }
-        public ImmutableDictionary<string, int> ComponentIDs {get; init; }
-        public bool DepthRando {get; init; }
-        public bool ComponentsRando {get; init; }
-        public bool Calamity {get; init; }
-        public bool Fargo {get; init; }
+        public ImmutableDictionary<int, int> ItemsByNPC { get; init; }
+        public ImmutableArray<ImmutableArray<int>> ComponentIDs { get; init; }
+        public bool DepthRando { get; init; }
+        public bool ComponentsRando { get; init; }
+        public bool Calamity { get; init; }
+        public bool Fargo { get; init; }
         public SlotData() {}
         public SlotData(ArchipelagoSession session, LoginSuccessful login)
         {
@@ -47,12 +47,16 @@ namespace SeldomDespArchipelago.Systems.Data
             Deathlink = (bool)login.SlotData["deathlink"];
             NpcRando = isEnabled("npc_rando");
             DepthRando = isEnabled("depth_rando");
-            ComponentsRando = isEnabled("zenith_components"); // || (isEnabled("future_items")...);
+            
+            JArray componentsArray = login.SlotData.TryGetValue("components", out var compObj) ? compObj as JArray : null;
+            ComponentsRando = componentsArray != null && componentsArray.Count > 0;
+
             Calamity = isEnabled("calamity");
             Fargo = isEnabled("fargo");
             RandomizedNPCs = null;
             var itemsByNPC = new Dictionary<int, int>();
-            var componentIDs = new Dictionary<string, int>();
+            var componentIDLists = new List<ImmutableArray<int>>();
+
             if (NpcRando)
             {
                 string[] randomizedNPCnames = ((JArray)login.SlotData["randomize_npcs"]).ToObject<string[]>();
@@ -86,25 +90,30 @@ namespace SeldomDespArchipelago.Systems.Data
                     ModContent.GetInstance<ArchipelagoSystem>().Mod.Logger.Info("Failed to properly initialize " + nameof(ItemsByNPC));
                 }
             }
+
             if (ComponentsRando)
             {
-                string[] componentNames = ((JArray)login.SlotData["components"]).ToObject<string[]>();
+                string[] componentNames = componentsArray.ToObject<string[]>();
+
                 foreach (string component in componentNames)
                 {
-                    if (ItemID.Search.TryGetId(component, out int id))
+                    List<int> resolvedIds = GhostItemSystem.ResolveItemIds(component);
+
+                    if (resolvedIds.Count > 0)
                     {
-                        componentIDs[component] = id;
+                        componentIDLists.Add(resolvedIds.ToImmutableArray());
+                        ModLoader.GetMod(nameof(SeldomDespArchipelago)).Logger.Info($"[Archipelago] Successfully resolved component '{component}' to item ID(s): [{string.Join(", ", resolvedIds)}]");
                     }
                     else
                     {
-                        Main.NewText($"[Archipelago] Error: Could not resolve item ID for component '{component}'. Report this to the devs.", Microsoft.Xna.Framework.Color.Red);
+                        ModLoader.GetMod(nameof(SeldomDespArchipelago)).Logger.Warn($"[Archipelago] Error: Could not resolve item ID(s) for component '{component}'. Report this to the devs.");
                     }
                 }
             }
-            
             ItemsByNPC = NpcRando ? itemsByNPC.ToImmutableDictionary() : null;
-            ComponentIDs = ComponentsRando ? componentIDs.ToImmutableDictionary() : null;
+            ComponentIDs = ComponentsRando ? componentIDLists.ToImmutableArray() : default;
         }
+
         public TagCompound SerializeData()
         {
             var tag = new TagCompound
@@ -123,17 +132,41 @@ namespace SeldomDespArchipelago.Systems.Data
             if (NpcRando)
             {
                 tag[nameof(RandomizedNPCs)] = RandomizedNPCs.ToList();
-                tag[nameof(ItemsByNPC)+"Keys"] = ItemsByNPC.Keys.ToList();
-                tag[nameof(ItemsByNPC)+"Values"] = ItemsByNPC.Values.ToList();
+                tag[nameof(ItemsByNPC) + "Keys"] = ItemsByNPC.Keys.ToList();
+                tag[nameof(ItemsByNPC) + "Values"] = ItemsByNPC.Values.ToList();
+            }
+            if (ComponentsRando)
+            {
+                var compTags = new List<TagCompound>();
+                foreach (var inner in ComponentIDs)
+                {
+                    compTags.Add(new TagCompound { ["Ids"] = inner.ToList() });
+                }
+                tag[nameof(ComponentIDs)] = compTags;
             }
             return tag;
         }
+
         public static readonly Func<TagCompound, SlotData> DESERIALIZER = (tag) =>
         {
-            // Outside constructor for slightly enhanced readability
             bool npcRando = tag.GetBool(nameof(NpcRando));
-            var npcs = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC)+"Keys") : null;
-            var items = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC)+"Values") : null;
+            var npcs = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC) + "Keys") : null;
+            var items = npcRando ? tag.Get<List<int>>(nameof(ItemsByNPC) + "Values") : null;
+            
+            bool componentsRando = tag.GetBool(nameof(ComponentsRando));
+            var compTags = componentsRando ? tag.GetList<TagCompound>(nameof(ComponentIDs)) : null;
+            
+            ImmutableArray<ImmutableArray<int>> componentIDs = default;
+            if (componentsRando && compTags != null)
+            {
+                var builder = ImmutableArray.CreateBuilder<ImmutableArray<int>>(compTags.Count);
+                foreach (var t in compTags)
+                {
+                    builder.Add(t.GetList<int>("Ids").ToImmutableArray());
+                }
+                componentIDs = builder.ToImmutable();
+            }
+
             return new SlotData()
             {
                 Slot = tag.GetInt(nameof(Slot)),
@@ -143,13 +176,15 @@ namespace SeldomDespArchipelago.Systems.Data
                 Deathlink = tag.GetBool(nameof(Deathlink)),
                 NpcRando = npcRando,
                 RandomizedNPCs = npcRando ? tag.GetList<int>(nameof(RandomizedNPCs)).ToImmutableHashSet() : null,
-                ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v}).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
+                ItemsByNPC = npcRando ? npcs.Zip(items, (k, v) => new { Key = k, Value = v }).ToImmutableDictionary(x => x.Key, x => x.Value) : null,
                 DepthRando = tag.GetBool(nameof(DepthRando)),
-                ComponentsRando = tag.GetBool(nameof(ComponentsRando)),
+                ComponentsRando = componentsRando,
+                ComponentIDs = componentIDs,
                 Calamity = tag.GetBool(nameof(Calamity)),
                 Fargo = tag.GetBool(nameof(Fargo)),
             };
         };
+
         public void Write(BinaryWriter writer)
         {
             writer.Write(Slot);
@@ -163,9 +198,18 @@ namespace SeldomDespArchipelago.Systems.Data
             writer.Write(string.Join(';', ItemsByNPC.Values));
             writer.Write(DepthRando);
             writer.Write(ComponentsRando);
+            if (ComponentsRando)
+            {
+                writer.Write(ComponentIDs.Length);
+                foreach (var inner in ComponentIDs)
+                {
+                    writer.Write(string.Join(',', inner));
+                }
+            }
             writer.Write(Calamity);
             writer.Write(Fargo);
         }
+
         public static SlotData? ReadSlotData(BinaryReader reader)
         {
             try
@@ -181,23 +225,42 @@ namespace SeldomDespArchipelago.Systems.Data
                 var itemsByNPCValues = from i in reader.ReadString().Split(';') select int.Parse(i);
                 bool depthRando = reader.ReadBoolean();
                 bool componentsRando = reader.ReadBoolean();
+                
+                ImmutableArray<ImmutableArray<int>> componentIDs = default;
+                if (componentsRando)
+                {
+                    int count = reader.ReadInt32();
+                    var builder = ImmutableArray.CreateBuilder<ImmutableArray<int>>(count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        string line = reader.ReadString();
+                        var inner = string.IsNullOrEmpty(line) 
+                            ? ImmutableArray<int>.Empty 
+                            : line.Split(',').Select(int.Parse).ToImmutableArray();
+                        builder.Add(inner);
+                    }
+                    componentIDs = builder.ToImmutable();
+                }
+
                 bool calamity = reader.ReadBoolean();
                 bool fargo = reader.ReadBoolean();
+                
                 return new SlotData
-            {
-                Slot = slot,
-                Name = name,
-                Seed = seed,
-                Goals = goals,
-                Deathlink = deathlink,
-                NpcRando = npcRando,
-                RandomizedNPCs = randomizedNPCs,
-                ItemsByNPC = itemsByNPCKeys.Zip(itemsByNPCValues, (k, v) => KeyValuePair.Create(k, v)).ToImmutableDictionary(),
-                DepthRando = depthRando,
-                ComponentsRando = componentsRando,
-                Calamity = calamity,
-                Fargo = fargo,
-            };
+                {
+                    Slot = slot,
+                    Name = name,
+                    Seed = seed,
+                    Goals = goals,
+                    Deathlink = deathlink,
+                    NpcRando = npcRando,
+                    RandomizedNPCs = randomizedNPCs,
+                    ItemsByNPC = itemsByNPCKeys.Zip(itemsByNPCValues, (k, v) => KeyValuePair.Create(k, v)).ToImmutableDictionary(),
+                    DepthRando = depthRando,
+                    ComponentsRando = componentsRando,
+                    ComponentIDs = componentIDs,
+                    Calamity = calamity,
+                    Fargo = fargo,
+                };
             }
             catch (Exception e)
             {

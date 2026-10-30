@@ -176,6 +176,33 @@ namespace SeldomDespArchipelago.Systems
             }
             QueueLocation(loc);
         }
+        
+        public void QueueLocationClient(int itemId)
+        {
+            if (ItemID.Search.ContainsId(itemId))
+            {
+                string searchName = ItemID.Search.GetName(itemId);
+
+                // Check using cleaned name matching against alias map
+                if (GhostItemSystem.TryGetCategory(searchName, out string categoryName))
+                {
+                    string locationName = categoryName + " Component";
+                    Mod.Logger.Info($"[Archipelago] Queueing location check via category alias: '{locationName}' for Item ID {itemId} ('{searchName}')");
+                    QueueLocationClient(locationName);
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(searchName))
+                {
+                    string locationName = searchName + " Component";
+                    Mod.Logger.Info($"[Archipelago] Queueing location check: '{locationName}' for Item ID {itemId}");
+                    QueueLocationClient(locationName);
+                    return;
+                }
+            }
+
+            Mod.Logger.Warn($"[Archipelago] Unable to queue location for Item ID {itemId}: No mapped name found in ItemID.Search.");
+        }
         # endregion
         static ConnectButton btn;
         public override void Load()
@@ -299,17 +326,46 @@ namespace SeldomDespArchipelago.Systems
 
             
             GhostItemSystem.ClearIDs();
-            if (ActiveSlot()?.ComponentIDs is ImmutableDictionary<string, int> components)
+
+            if (ActiveSlot() is SlotData slot && !slot.ComponentIDs.IsDefaultOrEmpty)
             {
-                GhostItemSystem.SetGhostItems(components, delete_on_found: false, isReceivable: false);
+                GhostItemSystem.SetGhostItems(slot.ComponentIDs);
+                ModContent.GetInstance<SeldomArchipelago>().Logger.Info(
+                    $"[Archipelago] Successfully set ghost items: {GhostItemSystem.GhostItemIDs.Count} item IDs registered."
+                );
             }
-            foreach (var sentItem in session.session.Locations.AllLocationsChecked)
+            else
             {
-                String itemName = session.session.Locations.GetLocationNameFromId(sentItem);
-                if(itemName.EndsWith(" Component"))
+                ModContent.GetInstance<SeldomArchipelago>().Logger.Warn(
+                    "[Archipelago] Warning: ActiveSlot() was null or ComponentIDs was uninitialized/empty!"
+                );
+            }
+
+            List<int> tempConsumedIds = new();
+
+            foreach (long locationId in session.session.Locations.AllLocationsChecked)
+            {
+                string itemName = session.session.Locations.GetLocationNameFromId(locationId);
+                if (!string.IsNullOrEmpty(itemName) && itemName.EndsWith(" Component"))
                 {
-                    GhostItemSystem.MarkSent(itemName);
+                    string baseItemName = itemName[..^" Component".Length];
+                    
+                    // Single helper resolves aliases or exact item names
+                    List<int> resolved = GhostItemSystem.ResolveItemIds(baseItemName);
+                    if (resolved.Count > 0)
+                    {
+                        tempConsumedIds.AddRange(resolved);
+                    }
+                    else
+                    {
+                        Mod.Logger.Warn($"[Archipelago] Could not resolve item ID for component location: {itemName} (Base: {baseItemName})");
+                    }
                 }
+            }
+
+            if (tempConsumedIds.Count > 0)
+            {
+                GhostItemSystem.SetConsumedItems(tempConsumedIds);
             }
 
             // Refresh suspended flags
